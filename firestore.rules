@@ -1,0 +1,109 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Users ---
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['id', 'name', 'email', 'role', 'createdAt']) &&
+               data.keys().size() == 5 &&
+               data.id == request.auth.uid &&
+               data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+               data.email is string && data.email.size() <= 100 &&
+               data.role in ['customer', 'barber', 'admin'] &&
+               data.createdAt == request.time;
+      }
+
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) && incoming().role == 'customer'; 
+      allow update: if isSignedIn() && (
+        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'photoUrl'])) ||
+        isAdmin()
+      );
+    }
+
+    // --- Services ---
+    match /services/{serviceId} {
+      function isValidService(data) {
+        return data.keys().hasAll(['id', 'name', 'price', 'duration']) &&
+               data.name is string && data.name.size() <= 100 &&
+               data.price is number && data.price >= 0 &&
+               data.duration is int && data.duration > 0;
+      }
+
+      allow read: if true; // Publicly available
+      allow write: if isAdmin() && isValidService(incoming());
+    }
+
+    // --- Barbers ---
+    match /barbers/{barberId} {
+      function isValidBarber(data) {
+        return data.keys().hasAll(['id', 'name']) &&
+               data.name is string && data.name.size() <= 100;
+      }
+
+      allow read: if true;
+      allow write: if isAdmin() && isValidBarber(incoming());
+    }
+
+    // --- Appointments ---
+    match /appointments/{appointmentId} {
+      function isValidAppointment(data) {
+        return data.keys().hasAll(['id', 'customerId', 'barberId', 'serviceId', 'startTime', 'endTime', 'status', 'totalPrice', 'createdAt']) &&
+               data.customerId == request.auth.uid &&
+               data.status in ['pending', 'confirmed', 'cancelled', 'completed'] &&
+               data.totalPrice is number &&
+               exists(/databases/$(database)/documents/barbers/$(data.barberId)) &&
+               exists(/databases/$(database)/documents/services/$(data.serviceId));
+      }
+
+      function isTerminal() {
+        return existing().status in ['cancelled', 'completed'];
+      }
+
+      allow list: if isSignedIn() && (resource.data.customerId == request.auth.uid || isAdmin());
+      allow get: if isSignedIn() && (resource.data.customerId == request.auth.uid || isAdmin());
+      
+      allow create: if isEmailVerified() && isValidAppointment(incoming()) && incoming().status == 'pending';
+      
+      allow update: if isSignedIn() && !isTerminal() && (
+        (isOwner(existing().customerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status == 'cancelled') ||
+        isAdmin()
+      );
+    }
+  }
+}

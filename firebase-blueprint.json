@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a user of the application, either customer, barber, or admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoUrl": { "type": "string" },
+        "role": { "type": "string", "enum": ["customer", "barber", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "A haircut or beard service offered by the barbershop.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "duration": { "type": "integer", "description": "Duration in minutes" },
+        "imageUrl": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "duration"]
+    },
+    "Barber": {
+      "title": "Barber",
+      "description": "A professional barber working at the shop.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string", "description": "Link to User entity if it exists" },
+        "name": { "type": "string" },
+        "bio": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "specialties": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "name"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "A booking made by a customer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "barberId": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "completed"] },
+        "totalPrice": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "customerId", "barberId", "serviceId", "startTime", "endTime", "status", "totalPrice"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles and roles."
+    },
+    "services": {
+      "schema": { "$ref": "#/entities/Service" },
+      "description": "Available haircut and grooming services."
+    },
+    "barbers": {
+      "schema": { "$ref": "#/entities/Barber" },
+      "description": "Profiles of the barbers."
+    },
+    "appointments": {
+      "schema": { "$ref": "#/entities/Appointment" },
+      "description": "Booking records."
+    }
+  }
+}
