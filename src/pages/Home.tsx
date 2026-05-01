@@ -58,6 +58,13 @@ export default function Home() {
     setAppointments(a);
   };
 
+  const handleCancel = async (id: string) => {
+    if (confirm('Tem certeza que deseja cancelar este agendamento?')) {
+      await bookingService.cancelAppointment(id);
+      loadAppointments();
+    }
+  };
+
   const handleBooking = (service: BarberService) => {
     if (!user) {
       signInWithGoogle();
@@ -226,7 +233,7 @@ export default function Home() {
                   const service = services.find(s => s.id === apt.serviceId);
                   const barber = barbers.find(b => b.id === apt.barberId);
                   return (
-                    <Card key={apt.id} className="premium-card !p-4 flex items-center justify-between">
+                    <Card key={apt.id} className="premium-card !p-4 flex items-center justify-between group">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-zinc-800 rounded-xl flex items-center justify-center">
                           <CalendarIcon className="text-gold w-6 h-6" />
@@ -234,19 +241,33 @@ export default function Home() {
                         <div>
                           <p className="font-medium text-white">{service?.name || 'Serviço'}</p>
                           <p className="text-xs text-zinc-500">
-                            {format(new Date(apt.startTime), "dd MMM, HH:mm", { locale: ptBR })} com {barber?.name || 'Barbeiro'}
+                            {format(new Date(apt.startTime), "dd MMM, HH:mm", { locale: ptBR })} • {barber?.name || 'Barbeiro'}
                           </p>
                         </div>
                       </div>
-                      <Badge className={
-                        apt.status === 'confirmed' ? 'bg-green-500/20 text-green-500' :
-                        apt.status === 'pending' ? 'bg-gold/20 text-gold' :
-                        'bg-zinc-800 text-zinc-500'
-                      }>
-                        {apt.status === 'pending' ? 'Pendente' : 
-                         apt.status === 'confirmed' ? 'Confirmado' : 
-                         apt.status === 'cancelled' ? 'Cancelado' : 'Concluído'}
-                      </Badge>
+                      
+                      <div className="flex items-center gap-3">
+                        <Badge className={
+                          apt.status === 'confirmed' ? 'bg-green-500/20 text-green-500 border-none' :
+                          apt.status === 'pending' ? 'bg-gold/20 text-gold border-none' :
+                          'bg-zinc-800 text-zinc-500 border-none'
+                        }>
+                          {apt.status === 'pending' ? 'Pendente' : 
+                           apt.status === 'confirmed' ? 'Confirmado' : 
+                           apt.status === 'cancelled' ? 'Cancelado' : 'Concluído'}
+                        </Badge>
+                        
+                        {apt.status === 'pending' && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleCancel(apt.id)}
+                            className="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            Cancelar
+                          </Button>
+                        )}
+                      </div>
                     </Card>
                   );
                 })
